@@ -6,7 +6,6 @@ add_definitions(-DJUCE_WEB_BROWSER=0)
 add_subdirectory(JUCE) # JUCE source in ./JUCE
 
 # --- Platform-specific dependencies and workarounds ---
-
 if(UNIX AND NOT APPLE)
     # Linux-specific: require GTK3 for JUCE GUI
     find_package(PkgConfig REQUIRED)
@@ -14,14 +13,30 @@ if(UNIX AND NOT APPLE)
     include_directories(${GTK3_INCLUDE_DIRS})
     link_directories(${GTK3_LIBRARY_DIRS})
     add_definitions(${GTK3_CFLAGS_OTHER})
-elseif(APPLE)
-    # macOS-specific: (add macOS-only logic here if needed)
-    message(STATUS "Configuring for macOS")
-elseif(WIN32)
-    # Windows-specific: (add Windows-only logic here if needed)
-    message(STATUS "Configuring for Windows")
-endif()
 
+    # Linux-specific: require libcurl for networking
+    pkg_check_modules(CURL REQUIRED libcurl)
+    include_directories(${CURL_INCLUDE_DIRS})
+    link_directories(${CURL_LIBRARY_DIRS})
+    add_definitions(${CURL_CFLAGS_OTHER})
+    set(PLATFORM_LIBS ${GTK3_LIBRARIES} ${CURL_LIBRARIES})
+
+elseif(APPLE)
+    # macOS-specific: Optionally link curl if found
+    find_package(CURL)
+    if(CURL_FOUND)
+        message(STATUS "libcurl found on macOS, will link.")
+        set(PLATFORM_LIBS CURL::libcurl)
+    else()
+        message(STATUS "libcurl not found on macOS, will not link.")
+        set(PLATFORM_LIBS "")
+    endif()
+
+elseif(WIN32)
+    # Windows-specific: No extra dependencies required
+    message(STATUS "Configuring for Windows (no extra dependencies)")
+    set(PLATFORM_LIBS "")
+endif()
 # ------------------------------------------------------
 
 # --- Embed your PNG as binary data ---
@@ -81,5 +96,5 @@ target_link_libraries(FM_Engine_beta PRIVATE
     juce::juce_graphics
     juce::juce_gui_basics
     juce::juce_gui_extra
-    curl
+    ${PLATFORM_LIBS}
 )
