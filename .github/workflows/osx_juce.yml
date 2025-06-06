@@ -1,4 +1,4 @@
-name: Build JUCE Plugin
+name: Build JUCE Plugin (macOS)
 
 on:
   push:
@@ -8,28 +8,20 @@ on:
 
 jobs:
   build:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [windows-latest, macos-latest]
+    runs-on: macos-latest
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Download JUCE 8.0.7
+      - name: Download and extract JUCE 8.0.7
         run: |
           curl -L https://github.com/juce-framework/JUCE/archive/refs/tags/8.0.7.zip -o juce.zip
-          unzip juce.zip
+          unzip -q juce.zip
           rm -rf JUCE
           mv JUCE-8.0.7 JUCE
 
-      - name: Install CMake (Windows)
-        if: runner.os == 'Windows'
-        run: choco install cmake -y
-
-      - name: Install CMake (macOS)
-        if: runner.os == 'macOS'
+      - name: Install CMake
         run: brew install cmake
 
       - name: Configure CMake
@@ -41,7 +33,7 @@ jobs:
       - name: Upload artefacts
         uses: actions/upload-artifact@v4
         with:
-          name: JUCE-Build-${{ matrix.os }}
+          name: JUCE-Build-macos
           path: |
             build/**/FM_Engine_beta.vst3/**
             build/**/FM_Engine_beta_artefacts/**
