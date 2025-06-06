@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.15)
 
 project(FM_Engine_beta VERSION 0.6.6)
 
-# Add JUCE as a subdirectory (assuming JUCE is extracted to ./JUCE)
+# Add JUCE as a subdirectory
 add_subdirectory(JUCE)
 
 juce_add_plugin(FM_Engine_beta
@@ -10,8 +10,8 @@ juce_add_plugin(FM_Engine_beta
     COMPANY_WEBSITE "https://github.com/joshgura/"
     COMPANY_EMAIL "amateurtools@gmail.com"
     COMPANY_COPYRIGHT "2014-2025"
-    IS_SYNTH FALSE
-    NEEDS_MIDI_INPUT FALSE
+    IS_SYNTH FALSE                   # Audio effect, not a synth
+    NEEDS_MIDI_INPUT FALSE           # No MIDI input needed
     NEEDS_MIDI_OUTPUT FALSE
     IS_MIDI_EFFECT FALSE
     EDITOR_WANTS_KEYBOARD_FOCUS FALSE
@@ -72,5 +72,6 @@ target_compile_definitions(FM_Engine_beta
         JUCE_STRICT_REFCOUNTEDPOINTER=1
         JUCE_VST3_CAN_REPLACE_VST2=0
         JUCE_DISPLAY_SPLASH_SCREEN=0
-        JucePlugin_VSTCategory=kPlugCategSynth # Or another valid VST3 category if this is not a synth
+        # Use effect category for audio processing plugin
+        JucePlugin_VSTCategory=kPlugCategEffect
 )
