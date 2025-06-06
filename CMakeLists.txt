@@ -5,13 +5,24 @@ add_definitions(-DJUCE_WEB_BROWSER=0)
 
 add_subdirectory(JUCE) # JUCE source in ./JUCE
 
-# --- GTK3 workaround: force CMake to find and use GTK3 via pkg-config ---
-find_package(PkgConfig REQUIRED)
-pkg_check_modules(GTK3 REQUIRED gtk+-3.0)
-include_directories(${GTK3_INCLUDE_DIRS})
-link_directories(${GTK3_LIBRARY_DIRS})
-add_definitions(${GTK3_CFLAGS_OTHER})
-# ------------------------------------------------------------------------
+# --- Platform-specific dependencies and workarounds ---
+
+if(UNIX AND NOT APPLE)
+    # Linux-specific: require GTK3 for JUCE GUI
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(GTK3 REQUIRED gtk+-3.0)
+    include_directories(${GTK3_INCLUDE_DIRS})
+    link_directories(${GTK3_LIBRARY_DIRS})
+    add_definitions(${GTK3_CFLAGS_OTHER})
+elseif(APPLE)
+    # macOS-specific: (add macOS-only logic here if needed)
+    message(STATUS "Configuring for macOS")
+elseif(WIN32)
+    # Windows-specific: (add Windows-only logic here if needed)
+    message(STATUS "Configuring for Windows")
+endif()
+
+# ------------------------------------------------------
 
 # --- Embed your PNG as binary data ---
 juce_add_binary_data(BinaryData SOURCES
