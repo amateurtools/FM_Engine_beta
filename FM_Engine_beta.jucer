@@ -1,0 +1,139 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<JUCERPROJECT id="X9uY0E" name="FM_Engine_beta" projectType="audioplug" useAppConfig="0"
+              addUsingNamespaceToJuceHeader="0" jucerFormatVersion="1" pluginFormats="buildVST3"
+              pluginVST3Category="Delay,Fx,Modulation,Stereo,Tools" pluginManufacturer="AmateurToolsDSP"
+              companyWebsite="https://github.com/joshgura/" companyName="AmateurToolsDSP"
+              companyCopyright="2014-2025" companyEmail="amateurtools@gmail.com"
+              pluginName="FM_Engine_beta" version="0.06062025">
+  <MAINGROUP id="RGaoDF" name="FM_Engine_beta">
+    <GROUP id="{049504AA-25F8-A94D-A045-E6973F3AAC5A}" name="BinaryData">
+      <FILE id="nSVMvu" name="background.png" compile="0" resource="1" file="BinaryData/background.png"/>
+    </GROUP>
+    <GROUP id="{ACB385E3-CBA4-2457-B093-8691654E04B4}" name="Source">
+      <FILE id="NEEPq0" name="InterpolatedDelay.h" compile="0" resource="0"
+            file="Source/InterpolatedDelay.h"/>
+      <FILE id="rRPkoh" name="Dial.cpp" compile="1" resource="0" file="Source/Dial.cpp"/>
+      <FILE id="kIaqW6" name="Dial.h" compile="0" resource="0" file="Source/Dial.h"/>
+      <FILE id="iHPWAs" name="LowPass.cpp" compile="1" resource="0" file="Source/LowPass.cpp"/>
+      <FILE id="UbIdK0" name="LowPass.h" compile="0" resource="0" file="Source/LowPass.h"/>
+      <FILE id="eJzZQ0" name="PluginEditor.cpp" compile="1" resource="0"
+            file="Source/PluginEditor.cpp"/>
+      <FILE id="EUce4K" name="PluginEditor.h" compile="0" resource="0" file="Source/PluginEditor.h"/>
+      <FILE id="uVR1Hg" name="PluginProcessor.cpp" compile="1" resource="0"
+            file="Source/PluginProcessor.cpp"/>
+      <FILE id="oag2PZ" name="PluginProcessor.h" compile="0" resource="0"
+            file="Source/PluginProcessor.h"/>
+      <FILE id="s6esJv" name="Routing.cpp" compile="1" resource="0" file="Source/Routing.cpp"/>
+      <FILE id="CpLrHd" name="Routing.h" compile="0" resource="0" file="Source/Routing.h"/>
+      <FILE id="hfYNBN" name="SidewaysToggleSwitch.h" compile="0" resource="0"
+            file="Source/SidewaysToggleSwitch.h"/>
+      <FILE id="cBELCL" name="SlidingSwitch.cpp" compile="1" resource="0"
+            file="Source/SlidingSwitch.cpp"/>
+      <FILE id="jPe1np" name="SlidingSwitch.h" compile="0" resource="0" file="Source/SlidingSwitch.h"/>
+    </GROUP>
+  </MAINGROUP>
+  <MODULES>
+    <MODULE id="juce_audio_basics" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_audio_devices" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_audio_formats" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_audio_plugin_client" showAllCode="1" useLocalCopy="0"
+            useGlobalPath="1"/>
+    <MODULE id="juce_audio_processors" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_audio_utils" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_core" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_data_structures" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_dsp" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_events" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_graphics" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_gui_basics" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_gui_extra" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+  </MODULES>
+  <JUCEOPTIONS JUCE_STRICT_REFCOUNTEDPOINTER="1" JUCE_VST3_CAN_REPLACE_VST2="0"/>
+  <EXPORTFORMATS>
+    <LINUX_MAKE targetFolder="Builds/LinuxMakefile">
+      <CONFIGURATIONS>
+        <CONFIGURATION isDebug="1" name="Debug" targetName="FM_Engine_beta"/>
+        <CONFIGURATION isDebug="0" name="Release"/>
+      </CONFIGURATIONS>
+      <MODULEPATHS>
+        <MODULEPATH id="juce_audio_basics" path="../../../../FIRESTORE/opt/JUCE/modules"/>
+        <MODULEPATH id="juce_audio_devices" path="../../../../FIRESTORE/opt/JUCE/modules"/>
+        <MODULEPATH id="juce_audio_formats" path="../../../../FIRESTORE/opt/JUCE/modules"/>
+        <MODULEPATH id="juce_audio_plugin_client" path="../../../../FIRESTORE/opt/JUCE/modules"/>
+        <MODULEPATH id="juce_audio_processors" path="../../../../FIRESTORE/opt/JUCE/modules"/>
+        <MODULEPATH id="juce_audio_utils" path="../../../../FIRESTORE/opt/JUCE/modules"/>
+        <MODULEPATH id="juce_core" path="../../../../FIRESTORE/opt/JUCE/modules"/>
+        <MODULEPATH id="juce_data_structures" path="../../../../FIRESTORE/opt/JUCE/modules"/>
+        <MODULEPATH id="juce_dsp" path="../../../../FIRESTORE/opt/JUCE/modules"/>
+        <MODULEPATH id="juce_events" path="../../../../FIRESTORE/opt/JUCE/modules"/>
+        <MODULEPATH id="juce_graphics" path="../../../../FIRESTORE/opt/JUCE/modules"/>
+        <MODULEPATH id="juce_gui_basics" path="../../../../FIRESTORE/opt/JUCE/modules"/>
+        <MODULEPATH id="juce_gui_extra" path="../../../../FIRESTORE/opt/JUCE/modules"/>
+      </MODULEPATHS>
+    </LINUX_MAKE>
+    <XCODE_MAC targetFolder="Builds/MacOSX">
+      <CONFIGURATIONS>
+        <CONFIGURATION isDebug="1" name="Debug"/>
+        <CONFIGURATION isDebug="0" name="Release"/>
+      </CONFIGURATIONS>
+      <MODULEPATHS>
+        <MODULEPATH id="juce_audio_basics" path="../../juce"/>
+        <MODULEPATH id="juce_audio_devices" path="../../juce"/>
+        <MODULEPATH id="juce_audio_formats" path="../../juce"/>
+        <MODULEPATH id="juce_audio_plugin_client" path="../../juce"/>
+        <MODULEPATH id="juce_audio_processors" path="../../juce"/>
+        <MODULEPATH id="juce_audio_utils" path="../../juce"/>
+        <MODULEPATH id="juce_core" path="../../juce"/>
+        <MODULEPATH id="juce_data_structures" path="../../juce"/>
+        <MODULEPATH id="juce_dsp" path="../../juce"/>
+        <MODULEPATH id="juce_events" path="../../juce"/>
+        <MODULEPATH id="juce_graphics" path="../../juce"/>
+        <MODULEPATH id="juce_gui_basics" path="../../juce"/>
+        <MODULEPATH id="juce_gui_extra" path="../../juce"/>
+      </MODULEPATHS>
+    </XCODE_MAC>
+    <XCODE_IPHONE targetFolder="Builds/iOS">
+      <CONFIGURATIONS>
+        <CONFIGURATION isDebug="1" name="Debug"/>
+        <CONFIGURATION isDebug="0" name="Release"/>
+      </CONFIGURATIONS>
+      <MODULEPATHS>
+        <MODULEPATH id="juce_audio_basics" path="~/JUCE/modules"/>
+        <MODULEPATH id="juce_audio_devices" path="~/JUCE/modules"/>
+        <MODULEPATH id="juce_audio_formats" path="~/JUCE/modules"/>
+        <MODULEPATH id="juce_audio_plugin_client" path="~/JUCE/modules"/>
+        <MODULEPATH id="juce_audio_processors" path="~/JUCE/modules"/>
+        <MODULEPATH id="juce_audio_utils" path="~/JUCE/modules"/>
+        <MODULEPATH id="juce_core" path="~/JUCE/modules"/>
+        <MODULEPATH id="juce_data_structures" path="~/JUCE/modules"/>
+        <MODULEPATH id="juce_dsp" path="~/JUCE/modules"/>
+        <MODULEPATH id="juce_events" path="~/JUCE/modules"/>
+        <MODULEPATH id="juce_graphics" path="~/JUCE/modules"/>
+        <MODULEPATH id="juce_gui_basics" path="~/JUCE/modules"/>
+        <MODULEPATH id="juce_gui_extra" path="~/JUCE/modules"/>
+      </MODULEPATHS>
+    </XCODE_IPHONE>
+    <VS2019 targetFolder="Builds/VisualStudio2019">
+      <CONFIGURATIONS>
+        <CONFIGURATION isDebug="1" name="Debug"/>
+        <CONFIGURATION isDebug="0" name="Release"/>
+      </CONFIGURATIONS>
+      <MODULEPATHS>
+        <MODULEPATH id="juce_audio_basics" path="../../juce"/>
+        <MODULEPATH id="juce_audio_devices" path="../../juce"/>
+        <MODULEPATH id="juce_audio_formats" path="../../juce"/>
+        <MODULEPATH id="juce_audio_plugin_client" path="../../juce"/>
+        <MODULEPATH id="juce_audio_processors" path="../../juce"/>
+        <MODULEPATH id="juce_audio_utils" path="../../juce"/>
+        <MODULEPATH id="juce_core" path="../../juce"/>
+        <MODULEPATH id="juce_data_structures" path="../../juce"/>
+        <MODULEPATH id="juce_dsp" path="../../juce"/>
+        <MODULEPATH id="juce_events" path="../../juce"/>
+        <MODULEPATH id="juce_graphics" path="../../juce"/>
+        <MODULEPATH id="juce_gui_basics" path="../../juce"/>
+        <MODULEPATH id="juce_gui_extra" path="../../juce"/>
+      </MODULEPATHS>
+    </VS2019>
+  </EXPORTFORMATS>
+</JUCERPROJECT>

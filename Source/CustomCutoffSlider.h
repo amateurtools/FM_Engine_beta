@@ -1,0 +1,110 @@
+#pragma once
+
+#if __has_include("JuceHeader.h")
+// Projucer build
+#include "JuceHeader.h"
+#else
+// CMake build: include only the modules you need
+#include <juce_audio_processors/juce_audio_processors.h>
+#include <juce_gui_basics/juce_gui_basics.h>
+#endif
+
+class CustomCutoffSlider : public juce::Slider
+{
+public:
+    CustomCutoffSlider()
+        : juce::Slider(juce::Slider::LinearHorizontal, juce::Slider::NoTextBox)
+    {
+        setRange(minCutoff, maxCutoff, 0.0); // No step, continuous
+        setSize(300, 20);
+        setWantsKeyboardFocus(false);
+    }
+
+    void paint(juce::Graphics& g) override
+    {
+        auto bounds = getLocalBounds().toFloat();
+        g.setColour(juce::Colour(40, 40, 40));
+        g.fillRect(bounds);
+
+        float sliderRange = bounds.getWidth() - knobSize;
+        float normValue = (float) ((getValue() - getMinimum()) / (getMaximum() - getMinimum()));
+        float knobX = sliderRange * normValue;
+        float knobY = (bounds.getHeight() - knobSize) * 0.5f;
+
+        g.setColour(juce::Colour(80, 80, 80));
+        g.fillRect(knobX, knobY, knobSize, knobSize);
+    }
+
+    void mouseDown(const juce::MouseEvent& event) override
+    {
+        auto bounds = getLocalBounds().toFloat();
+        float sliderRange = bounds.getWidth() - knobSize;
+        float normValue = (float) ((getValue() - getMinimum()) / (getMaximum() - getMinimum()));
+        float knobX = sliderRange * normValue;
+        float knobY = (bounds.getHeight() - knobSize) * 0.5f;
+        juce::Rectangle<float> knobRect(knobX, knobY, knobSize, knobSize);
+
+        draggingKnob = knobRect.contains(event.position);
+        dragStartValue = getValue();
+
+        if (draggingKnob && event.mods.isShiftDown())
+            if (onBypassOversamplingChanged) onBypassOversamplingChanged(true);
+    }
+
+    void mouseDrag(const juce::MouseEvent& event) override
+    {
+        if (!draggingKnob)
+            return;
+
+        auto bounds = getLocalBounds().toFloat();
+        float sliderRange = bounds.getWidth() - knobSize;
+        float mouseX = juce::jlimit(0.0f, sliderRange, event.position.x - knobSize * 0.5f);
+        float newNorm = juce::jlimit(0.0f, 1.0f, mouseX / sliderRange);
+
+        setSliderValueFromNorm(newNorm);
+
+        if (onBypassOversamplingChanged)
+            onBypassOversamplingChanged(event.mods.isShiftDown());
+    }
+
+    void mouseUp(const juce::MouseEvent&) override
+    {
+        draggingKnob = false;
+        if (onBypassOversamplingChanged)
+            onBypassOversamplingChanged(false);
+    }
+
+    void mouseWheelMove(const juce::MouseEvent& event, const juce::MouseWheelDetails& wheel) override
+    {
+        auto bounds = getLocalBounds().toFloat();
+        float sliderRange = bounds.getWidth() - knobSize;
+        float normValue = (float) ((getValue() - getMinimum()) / (getMaximum() - getMinimum()));
+        float knobX = sliderRange * normValue;
+        float knobY = (bounds.getHeight() - knobSize) * 0.5f;
+        juce::Rectangle<float> knobRect(knobX, knobY, knobSize, knobSize);
+
+        if (knobRect.contains(event.position))
+        {
+            float newNorm = juce::jlimit(0.0f, 1.0f, normValue + wheel.deltaY * 0.05f);
+            setSliderValueFromNorm(newNorm);
+        }
+    }
+
+    // Optional: callback for special UI actions
+    std::function<void(bool)> onBypassOversamplingChanged;
+
+private:
+    static constexpr float knobSize = 18.0f;
+    static constexpr double minCutoff = 20.0;
+    static constexpr double maxCutoff = 20000.0;
+    bool draggingKnob = false;
+    double dragStartValue = 0.0;
+
+    void setSliderValueFromNorm(float newNorm)
+    {
+        newNorm = juce::jlimit(0.0f, 1.0f, newNorm);
+        double newValue = getMinimum() + newNorm * (getMaximum() - getMinimum());
+        newValue = juce::jlimit(getMinimum(), getMaximum(), newValue);
+        setValue(newValue, juce::sendNotificationSync);
+    }
+};
