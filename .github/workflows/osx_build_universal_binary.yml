@@ -17,7 +17,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Download and extract JUCE 8.0.7
+      - name: Download and extract JUCE 8.0.8
         run: |
           curl -L https://github.com/juce-framework/JUCE/archive/refs/tags/8.0.8.zip -o juce.zip
           unzip -q juce.zip
@@ -42,7 +42,7 @@ jobs:
           path: |
             build_${{ matrix.arch }}/**/FM_Engine_beta.vst3/**
             build_${{ matrix.arch }}/**/FM_Engine_beta_artefacts/**
-  
+
   combine:
     needs: build-universal
     runs-on: macos-latest
@@ -59,19 +59,36 @@ jobs:
           name: JUCE-Build-macos-arm64
           path: arm64
 
+      - name: List files for debugging
+        run: |
+          echo "x86_64 contents:"
+          ls -R x86_64
+          echo "arm64 contents:"
+          ls -R arm64
+
       - name: Combine binaries using lipo
         run: |
-          # Replace with the actual path to your binary inside the .vst3 bundle
-          X86_BIN="x86_64/FM_Engine_beta.vst3/Contents/MacOS/FM_Engine_beta"
-          ARM_BIN="arm64/FM_Engine_beta.vst3/Contents/MacOS/FM_Engine_beta"
+          # Automatically find the binary in each architecture's extracted artefact
+          X86_BIN=$(find x86_64 -type f -name FM_Engine_beta | head -n 1)
+          ARM_BIN=$(find arm64 -type f -name FM_Engine_beta | head -n 1)
           UNIVERSAL_BIN="FM_Engine_beta.vst3/Contents/MacOS/FM_Engine_beta"
+
+          echo "x86_64 binary: $X86_BIN"
+          echo "arm64 binary: $ARM_BIN"
 
           mkdir -p FM_Engine_beta.vst3/Contents/MacOS
           lipo -create "$X86_BIN" "$ARM_BIN" -output "$UNIVERSAL_BIN"
 
           # Copy over the rest of the bundle (resources, Info.plist, etc.)
-          cp -R x86_64/FM_Engine_beta.vst3/Contents/Resources FM_Engine_beta.vst3/Contents/ || true
-          cp x86_64/FM_Engine_beta.vst3/Contents/Info.plist FM_Engine_beta.vst3/Contents/
+          # Find and copy the Info.plist and Resources from x86_64 artefact
+          INFO_PLIST=$(find x86_64 -name Info.plist | head -n 1)
+          if [ -f "$INFO_PLIST" ]; then
+            cp "$INFO_PLIST" FM_Engine_beta.vst3/Contents/
+          fi
+          RESOURCES_DIR=$(find x86_64 -type d -name Resources | head -n 1)
+          if [ -d "$RESOURCES_DIR" ]; then
+            cp -R "$RESOURCES_DIR" FM_Engine_beta.vst3/Contents/ || true
+          fi
 
       - name: Upload universal artefact
         uses: actions/upload-artifact@v4
