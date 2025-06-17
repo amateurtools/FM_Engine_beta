@@ -38,22 +38,95 @@ FM Engine is a JUCE 8.07 plugin module centered on a robust, modular delay line 
     Original article (2014, Bedroom Producers Blog)
 
 The project’s name has evolved: originally thought to be phase modulation, it is correctly frequency modulation. Documentation and code are being updated to reflect this.
-🔀 Signal Flow
+# 🔀 Signal Flow
 
-text
-graph TD
-    A[stereo + sidechain] --> B[Routing.cpp]
-    B --> C[car L, car R, mod L, mod R]
-    C --> D[out L]
-    C --> E[out R]
+The FM Engine’s routing is flexible, supporting three primary algorithms and optional carrier/modulator inversion. The routing logic is implemented in `Routing.cpp` and operates as follows:
 
-Processing equations:
+## **Routing Algorithms**
 
-cpp
-out L = DelayL(carrier L, maxDelayLength * lowpass(atan(clipper(mod L signal + 1) * 0.5)))
-out R = DelayR(carrier R, maxDelayLength * lowpass(atan(clipper(mod R signal + 1) * 0.5)))
+- **Algorithm 0:**  
+  - *Mono Carrier, Mono Modulator*  
+    - Carrier: Left input duplicated to both channels  
+    - Modulator: Right input duplicated to both channels
 
-    Modulation: Bipolar audio signal is shifted to unipolar, scaled 0–1, and used to modulate delay time at audio rate.
+- **Algorithm 1:**  
+  - *Mono Mix*  
+    - Carrier: Average of L+R sent to both channels  
+    - Modulator: Average of SC_L+SC_R (sidechain) sent to both channels
+
+- **Algorithm 2:**  
+  - *Full Stereo*  
+    - Carrier: L and R inputs preserved  
+    - Modulator: SC_L and SC_R (sidechain) preserved
+
+- **Invert:**  
+  - If enabled, swaps the carrier and modulator channels.
+
+---
+
+## **Signal Flow Diagram**
+
+flowchart TD
+A[Input L] -->|Algorithm 0/1: Mono mix or duplicate| B[Carrier L]
+B --> F[Delay L]
+A2[Input R] -->|Algorithm 0: Modulator| C[Modulator L]
+C --> G[Delay L]
+D[SC_L (Sidechain L)] -->|Algorithm 1/2: Modulator| E[Modulator L]
+E --> G
+D2[SC_R (Sidechain R)] -->|Algorithm 2: Modulator| H[Modulator R]
+H --> I[Delay R]
+A3[Input L] -->|Algorithm 2: Carrier| J[Carrier L]
+J --> F
+A4[Input R] -->|Algorithm 2: Carrier| K[Carrier R]
+K --> I
+%% Output nodes
+F --> O[Output L]
+I --> P[Output R]
+G -.-> O
+H -.-> P
+
+
+---
+
+## **Routing Logic Summary**
+
+- **Inputs:**  
+  - Main stereo input: L, R  
+  - Sidechain stereo input: SC_L, SC_R
+
+- **Outputs:**  
+  - Carrier (L, R)  
+  - Modulator (L, R)  
+  - Both passed to the delay engine for FM processing
+
+- **Inversion:**  
+  - If enabled, swaps carrier and modulator channels before processing.
+
+---
+
+## **Processing Equations**
+
+
+
+out L = DelayL(carrier L, maxDelayLength * lowpass(atan(clipper(modulator L + 1) * 0.5)))
+out R = DelayR(carrier R, maxDelayLength * lowpass(atan(clipper(modulator R + 1) * 0.5)))
+
+
+---
+
+## **Example Routing Table**
+
+| Algorithm | Carrier L      | Carrier R      | Modulator L     | Modulator R    |
+|-----------|---------------|---------------|----------------|---------------|
+| 0         | Input L       | Input L       | Input R        | Input R       |
+| 1         | (L+R)/2       | (L+R)/2       | (SC_L+SC_R)/2  | (SC_L+SC_R)/2 |
+| 2         | Input L       | Input R       | SC_L           | SC_R          |
+
+- **Invert:** Swaps carrier and modulator channels for both L and R.
+
+---
+
+*This routing system enables a wide range of FM and sidechain-based effects, from classic mono FM to advanced stereo and sidechain-driven modulation. For details, see `Routing.cpp` in the source code.*
 
 🎚️ Controls
 
