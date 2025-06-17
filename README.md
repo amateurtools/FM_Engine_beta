@@ -64,27 +64,57 @@ The FM Engine’s routing is flexible, supporting three primary algorithms and o
 
 ---
 
+# 🔀 Signal Flow
+
+The FM Engine’s routing is flexible, supporting three primary algorithms and optional carrier/modulator inversion. The routing logic is implemented in `Routing.cpp` and operates as follows:
+
+## **Routing Algorithms**
+
+- **Algorithm 0:**  
+  - *Mono Carrier, Mono Modulator*  
+    - Carrier: Left input duplicated to both channels  
+    - Modulator: Right input duplicated to both channels
+
+- **Algorithm 1:**  
+  - *Mono Mix*  
+    - Carrier: Average of L+R sent to both channels  
+    - Modulator: Average of SC_L+SC_R (sidechain) sent to both channels
+
+- **Algorithm 2:**  
+  - *Full Stereo*  
+    - Carrier: L and R inputs preserved  
+    - Modulator: SC_L and SC_R (sidechain) preserved
+
+- **Invert:**  
+  - If enabled, swaps the carrier and modulator channels.
+
+---
+
 ## **Signal Flow Diagram**
 
 flowchart TD
-A[Input L] -->|Algorithm 0/1: Mono mix or duplicate| B[Carrier L]
-B --> F[Delay L]
-A2[Input R] -->|Algorithm 0: Modulator| C[Modulator L]
-C --> G[Delay L]
-D[SC_L (Sidechain L)] -->|Algorithm 1/2: Modulator| E[Modulator L]
-E --> G
-D2[SC_R (Sidechain R)] -->|Algorithm 2: Modulator| H[Modulator R]
-H --> I[Delay R]
-A3[Input L] -->|Algorithm 2: Carrier| J[Carrier L]
-J --> F
-A4[Input R] -->|Algorithm 2: Carrier| K[Carrier R]
-K --> I
-%% Output nodes
-F --> O[Output L]
-I --> P[Output R]
-G -.-> O
-H -.-> P
+%% Inputs
+L[Input L] -->|Algorithm 0/1| C_L[Carrier L]
+L -->|Algorithm 0/1| C_R[Carrier R]
+R[Input R] -->|Algorithm 0| M_L[Modulator L]
+R -->|Algorithm 0| M_R[Modulator R]
+L -->|Algorithm 1| LR_Mix[LR Mix]
+R -->|Algorithm 1| LR_Mix
+LR_Mix -->|Algorithm 1| M_L1[Modulator L]
+LR_Mix -->|Algorithm 1| M_R1[Modulator R]
+L -->|Algorithm 2| C_L2[Carrier L]
+R -->|Algorithm 2| C_R2[Carrier R]
+SC_L[Sidechain L] -->|Algorithm 2| M_L2[Modulator L]
+SC_R[Sidechain R] -->|Algorithm 2| M_R2[Modulator R]
+%% Outputs
+C_L & C_L2 -->|to Delay| D_L[Delay L]
+C_R & C_R2 -->|to Delay| D_R[Delay R]
+M_L & M_L1 & M_L2 -->|to Delay| D_L
+M_R & M_R1 & M_R2 -->|to Delay| D_R
+D_L --> OutL[Output L]
+D_R --> OutR[Output R]
 
+text
 
 ---
 
@@ -106,11 +136,10 @@ H -.-> P
 
 ## **Processing Equations**
 
-
-
 out L = DelayL(carrier L, maxDelayLength * lowpass(atan(clipper(modulator L + 1) * 0.5)))
 out R = DelayR(carrier R, maxDelayLength * lowpass(atan(clipper(modulator R + 1) * 0.5)))
 
+text
 
 ---
 
@@ -127,28 +156,6 @@ out R = DelayR(carrier R, maxDelayLength * lowpass(atan(clipper(modulator R + 1)
 ---
 
 *This routing system enables a wide range of FM and sidechain-based effects, from classic mono FM to advanced stereo and sidechain-driven modulation. For details, see `Routing.cpp` in the source code.*
-
-🎚️ Controls
-
-    Second Knob:
-    Coarse range control, manages plugin delay compensation (PDC). Not intended for frequent automation.
-
-    Leftmost Dial:
-    Designed for real-time automation or manual tweaking.
-
-🛠️ Development Notes
-
-    Core FM processing is in Delay.cpp.
-
-    Delay time is cubic-interpolated for smooth, high-quality modulation.
-
-    SIMD optimization for oversampling is a key future goal.
-
-    Focus on minimizing noise and maximizing signal quality during audio-rate modulation
-
-.
-
-Custom UI controls are being developed for intuitive user interaction
 
     .
 
