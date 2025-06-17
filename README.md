@@ -1,4 +1,12 @@
-I forgot to mention, I am on Linux (but Juce is meant to be cross platform and I intend to emit Win and OSX builds)
+Copyright © 2025 AmateurTools DSP (Josh Gura)
+
+All rights reserved.
+
+This software is provided for personal use only.
+You may not copy, modify, distribute, sublicense, or sell any part of this software, 
+in whole or in part, without explicit, prior written permission from the copyright holder.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED.
 
 # 🎛️ FM Engine (working title), formerly Voltage Phase Module (Juce 8.07)
 
