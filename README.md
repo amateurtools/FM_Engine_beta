@@ -1,92 +1,88 @@
 Copyright © 2025 AmateurTools DSP (Josh Gura)
-
 All rights reserved.
 
 This software is provided for personal use only.
-You may not copy, modify, distribute, sublicense, or sell any part of this software, 
-in whole or in part, without explicit, prior written permission from the copyright holder.
+You may not copy, modify, distribute, sublicense, or sell any part of this software, in whole or in part, without explicit, prior written permission from the copyright holder.
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED.
+🎛️ FM Engine (Working Title)
 
-# 🎛️ FM Engine (working title), formerly Voltage Phase Module (Juce 8.07)
+formerly Voltage Phase Module – Built with JUCE 8.07
 
-> **A modular FM engine designed as a delay with advanced audio-rate modulation, inspired by classic FM synthesis but focused on creative signal processing.**
->[Audio Demo, piano modulating itself, then with Sine waves](https://soundcloud.com/florianhertz/vpm2_2025/)
----
+    A modular FM engine conceived as a delay effect with advanced audio-rate modulation. Inspired by classic FM synthesis, but focused on creative signal processing for modern production.
+    Audio Demo: Piano modulating itself, then with Sine waves
 
-## 📝 Overview
+📝 Overview
 
-I'm working on a **Juce 8.07 plugin** featuring a well-defined `Delay.cpp` designed as an FM engine.  
-This module implements just the FM part typically found in an FM synthesizer—**no actual sound generation** is performed here.
+FM Engine is a JUCE 8.07 plugin module centered on a robust, modular delay line (Delay.cpp) designed for audio-rate frequency modulation. Unlike traditional FM synths, this module does not generate sound directly; instead, it processes incoming audio, enabling deep creative effects for instruments, vocals, or any source.
 
-The delay line uses **cubic interpolation** for smooth transitions in delay time, which is standard for time-modulated effects.
+    Delay line: Uses cubic interpolation for smooth, time-modulated effects.
 
----
+    FM Focus: Implements only the frequency modulation section of classic FM synths—no oscillators or direct sound generation.
 
-## ⚡️ Technical Highlights
+⚡️ Technical Highlights
 
-- **Oversampling:**  
-  Currently using JUCE's built-in oversampling. The next step is to implement a SIMD version for greater efficiency (JUCE may include SIMD tools for this purpose).
-- **Audio-rate Time Modulation:**  
-  The delay is modulated at audio rate by the amplitude of a sidechain signal. This can introduce noise with complex waveforms, so oversampling is key to maximizing useful signal.
+    Oversampling:
+    Employs JUCE’s built-in oversampling. Plans are underway to implement SIMD-based oversampling for improved efficiency and fidelity.
 
----
+    Audio-Rate Time Modulation:
+    Delay time is modulated at audio rate by a sidechain amplitude signal. Oversampling is crucial to minimize noise when processing complex program material.
 
-## 📚 Background
+    Latency & PDC:
+    The plugin supports precise latency reporting and lookahead (PDC), with controls designed for both automation and manual adjustment
 
-> [Original article about this plugin (2014, Bedroom Producers Blog)](https://bedroomproducersblog.com/2014/06/18/voltage-phase-module/)
+    .
 
-The plugin’s name is technically incorrect—originally, I thought it was doing phase modulation, but it’s actually **frequency modulation**. I'm working on correcting this in the project and documentation.
+📚 Background
 
----
+    Original article (2014, Bedroom Producers Blog)
 
-## 🔀 Signal Flow (todo: fix this graph)
+The project’s name has evolved: originally thought to be phase modulation, it is correctly frequency modulation. Documentation and code are being updated to reflect this.
+🔀 Signal Flow
 
-```mermaid
+text
 graph TD
-    A[stereo and sidechain] --> B[Routing.cpp]
+    A[stereo + sidechain] --> B[Routing.cpp]
     B --> C[car L, car R, mod L, mod R]
     C --> D[out L]
     C --> E[out R]
-```
 
-**Processing equations:**
+Processing equations:
 
-```cpp
+cpp
 out L = DelayL(carrier L, maxDelayLength * lowpass(atan(clipper(mod L signal + 1) * 0.5)))
 out R = DelayR(carrier R, maxDelayLength * lowpass(atan(clipper(mod R signal + 1) * 0.5)))
-```
 
-- Take a **bipolar audio signal**, add 1 to make it unipolar, then scale/normalize to 0–1.
-- Use this as a multiplier for the maximum delay length, modulating at audio rate.
+    Modulation: Bipolar audio signal is shifted to unipolar, scaled 0–1, and used to modulate delay time at audio rate.
 
----
+🎚️ Controls
 
-## 🎛️ Controls
+    Second Knob:
+    Coarse range control, manages plugin delay compensation (PDC). Not intended for frequent automation.
 
-- **Second Knob:**  
-  Acts as a coarse range control, reporting PDC (lookahead or pre-delay) to the DAW.  
-  *Not* intended for automation or frequent adjustment.
-- **Leftmost Dial:**  
-  Designed for automation or manual tweaking.
+    Leftmost Dial:
+    Designed for real-time automation or manual tweaking.
 
----
+🛠️ Development Notes
 
-## 🛠️ Development Notes
+    Core FM processing is in Delay.cpp.
 
-- The core FM engine is in `Delay.cpp`.
-- Delay time is **cubic interpolated** for smooth modulation.
-- **SIMD optimization** is a future goal for oversampling.
-- The current modulation scheme can create noise with program material, so maximizing signal quality is a key focus.
+    Delay time is cubic-interpolated for smooth, high-quality modulation.
 
----
+    SIMD optimization for oversampling is a key future goal.
 
-## 📢 Feedback & Contributions
+    Focus on minimizing noise and maximizing signal quality during audio-rate modulation
 
-- Suggestions for improving the oversampling or SIMD implementation are welcome!
-- If you have experience with audio-rate delay modulation or FM techniques, please open an issue or PR.
+.
 
----
+Custom UI controls are being developed for intuitive user interaction
 
-*Thank you for checking out this project! For more details, see the [original blog post](https://bedroomproducersblog.com/2014/06/18/voltage-phase-module/) or browse the source code.*
+    .
 
+📢 Feedback & Contributions
+
+    Suggestions on oversampling, SIMD, or audio-rate modulation are welcome!
+
+    If you have expertise in advanced delay, routing, or FM techniques, please open an issue or PR.
+
+Thank you for checking out FM Engine! For more details, see the original blog post or explore the source code.
