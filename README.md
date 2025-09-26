@@ -13,7 +13,12 @@
 
 ## 🚀 Overview
 
-FM Engine is a cutting-edge JUCE 8.07 plugin that reimagines frequency modulation as a creative delay effect. Unlike traditional FM synthesizers that generate sound, FM Engine **processes** incoming audio through advanced audio-rate frequency modulation, opening up new creative possibilities for modern production.
+Think of FM Engine as *just* the FM part of an FM synthesizer. Except it allows the oft dreamt of
+applying FM to any two sources, using one as the carrier and one as the modulator. 
+Smooth sine shaped modulators sound better, but it can be used in as many ways as you can
+imagine. Obviously if you use modulators that contain high frequencies or noise it will just
+result in noise, so there's a built in low pass filter. However, try feeding it two different
+sine synths, or playing with a single sine synth in mode 1 and play a chord.
 
 ### ✨ Key Features
 
