@@ -58,27 +58,6 @@ out_L = DelayL(carrier_L, maxDelayLength × lowpass(atan(clipper(modulator_L + 1
 out_R = DelayR(carrier_R, maxDelayLength × lowpass(atan(clipper(modulator_R + 1) × 0.5)))
 ```
 
-### PDC Mode Processing
-
-When PDC is enabled, the plugin uses bipolar modulation mapping:
-
-```mermaid
-graph TB
-    subgraph "PDC Disabled (Standard)"
-        STD_MOD[Modulator Signal<br/>-1.0 to +1.0] --> STD_NORM[Normalize<br/>(mod + 1) × 0.5] --> STD_DELAY[Delay Time<br/>0 to maxDelay]
-    end
-    
-    subgraph "PDC Enabled (Bipolar)"
-        PDC_MOD[Modulator Signal<br/>-1.0 to +1.0] --> PDC_BASE{mod < 0?}
-        PDC_BASE -->|Yes| PDC_NEG[base + mod × base]
-        PDC_BASE -->|No| PDC_POS[base + mod × (max - base)]
-        PDC_NEG --> PDC_OUT[Delay Time]
-        PDC_POS --> PDC_OUT
-    end
-```
-
----
-
 ## 🔧 Building & Installation
 
 ### Prerequisites
@@ -205,23 +184,6 @@ sequenceDiagram
 
 ---
 
-## 📈 Roadmap
-
-### Upcoming Features
-
-- [ ] **SIMD Oversampling** - Custom implementation for better performance
-- [ ] **Multi-tap Delays** - Multiple delay taps with independent modulation
-- [ ] **LFO Modulation** - Built-in LFOs for modulator enhancement
-- [ ] **Preset System** - Save/load custom configurations
-- [ ] **Visual Feedback** - Real-time delay time and modulation visualization
-
-### Performance Optimizations
-
-- [ ] Buffer optimization for real-time performance
-- [ ] SIMD processing for delay calculations
-- [ ] Improved parameter smoothing algorithms
-
----
 
 ## 📚 Background & History
 
