@@ -1,6 +1,9 @@
 # 🎛️ FM Engine
 **A Modular FM Delay Processor for Creative Audio Production**
 
+This is in the general category of educational tools for students who want to experiment with
+aspects of Frequency Modulation, also as an imagination expander.
+
 [![License](https://img.shields.io/badge/License-Proprietary-red.svg)](LICENSE)
 [![JUCE](https://img.shields.io/badge/JUCE-8.07-blue.svg)](https://juce.com/)
 [![Platform](https://img.shields.io/badge/Platform-VST3-green.svg)](https://www.steinberg.net/vst/)
