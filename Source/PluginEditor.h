@@ -11,12 +11,13 @@
 // #include "BinaryData.h" // Only if you use binary data in this file
 #endif
 
-#include "Dial.h"
 #include "SlidingSwitch.h"
 #include "SidewaysToggleSwitch.h"
 #include "CustomCutoffSlider.h"
 #include "PluginProcessor.h" // for the getMaxDelayMsFromChoice() function
 
+class RotaryKnobLookAndFeel;
+class SteppedKnobLookAndFeel;
 
 class FmEngineAudioProcessor; // Forward declaration
 
@@ -35,13 +36,6 @@ public:
 
 private:
     std::vector<juce::Component*> guiComponents;
-    
-    // all this because i want a stepped dial that uses arbitrary values in a vector
-    static constexpr float minAngle = juce::degreesToRadians(225.0f);
-    static constexpr float midAngle = juce::degreesToRadians(270.0f);
-    static constexpr float maxAngle = juce::degreesToRadians(315.0f);
-    static const std::vector<float> dialAngles;
-    static const std::vector<float> steppedNormalizedValues;
 
     // CustomLookAndFeel customLookAndFeel; // needs to be FIRST!!
     FmEngineAudioProcessor& processor;
@@ -49,8 +43,6 @@ private:
     // InfoToggleButton InfoToggle; // tooltip toggle letter button
 
     juce::Image backgroundImage;
-    Dial modDepthDial;  // mod amount dial
-    Dial maxDelayDial;  // max delay range dial
     SlidingSwitch slideSwitch; //algorithm 3 positon selector switch
     SidewaysToggleSwitch swapToggle; // swap
     SidewaysToggleSwitch predelayToggle;
@@ -58,7 +50,6 @@ private:
     SidewaysToggleSwitch oversamplingToggle;
     CustomCutoffSlider lpfSlider;
 
-    juce::OwnedArray<Dial> dials;
 
     // Attachments
     juce::Slider modDepthSlider; // Continuous
@@ -69,16 +60,6 @@ private:
     bool controlPanelVisible = false;
     juce::Rectangle<int> controlPanelBounds { 0, 201, 337, 200 };
     juce::Rectangle<int> sandwichIconBounds { 10, 10, 20, 20 }; // Top-left corner, adjust as needed
-
-    // SidewaysToggleSwitch modClipArctanOrSineFold;
-    // SidewaysToggleSwitch outputArctanClip;
-    // Dial modCarBalance;
-    // Dial gainIn;
-    // Dial dryWet;
-    // Dial gainOut;
-
-    // Optionally, keep a pointer/reference to the slider you want to hide
-    // juce::Slider* sliderToHide = nullptr;
 
     // =============================================================================================
 
@@ -95,18 +76,15 @@ private:
 
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> lpfSliderAttachment;
 
+    // new knobfix stuff -- wip
+    std::unique_ptr<RotaryKnobLookAndFeel> rotaryKnobLookAndFeel;
+    std::unique_ptr<SteppedKnobLookAndFeel> steppedKnobLookAndFeel;
     
-
-    // Helper for continuous (and stepped!) dials
-    void addContinuousDial(
-        int x, int y, int w, int h,
-        float angleMin, float angleMax,
-        const juce::String& parameterID,
-        const juce::String& label);
+    // Add this helper method declaration:
+    void drawDialTicMarks(juce::Graphics& g);
 
     // LABELS
-    juce::Label amountLabel;
-    juce::Label rangeLabel;
+
     juce::Label swapLabel;
     juce::Label predelayLabel;
     juce::Label limiterLabel;

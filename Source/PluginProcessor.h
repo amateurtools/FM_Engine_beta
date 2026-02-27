@@ -23,7 +23,20 @@
 #include "LowPass.h"
 #include "Routing.h" // Assuming Routing.h defines RoutingOutputs struct
 
+// Add this to PluginProcessor.h after includes
+namespace ParameterIDs
+{
+    constexpr const char* MOD_DEPTH = "MOD_DEPTH";
+    constexpr const char* MAX_DELAY_MS = "MAX_DELAY_MS";
+    constexpr const char* ALGORITHM = "ALGORITHM";
+    constexpr const char* LIMITER = "LIMITER";
+    constexpr const char* SWAP = "SWAP";
+    constexpr const char* OVERSAMPLING = "OVERSAMPLING";
+    constexpr const char* PREDELAY = "PREDELAY";
+    constexpr const char* LP_CUTOFF = "LP_CUTOFF";
+}
 
+using namespace ParameterIDs;
 
 //==============================================================================
 class FmEngineAudioProcessor  : public juce::AudioProcessor,
@@ -79,15 +92,15 @@ public:
     // ================= Max Delay Ms from Choice converter ==========================
     float getMaxDelayMsFromChoice() const
     {
-        static constexpr float delayChoices[] = { 10.0f, 100.0f, 500.0f };
-        if (auto* maxDelayMsParam = dynamic_cast<juce::AudioParameterChoice*>(apvts.getParameter("MAX_DELAY_MS")))
+        static constexpr float delayChoices[] = { 1.0f, 10.0f, 100.0f, 500.0f };
+        if (auto* maxDelayMsParam = dynamic_cast<juce::AudioParameterInt*>(apvts.getParameter("MAX_DELAY_MS")))
         {
-            int idx = maxDelayMsParam->getIndex();
-            return delayChoices[juce::jlimit(0, 2, idx)];
+            int idx = maxDelayMsParam->get();  // Use get() instead of getIndex()
+            return delayChoices[juce::jlimit(0, 3, idx)];
         }
-        // Fallback (should not happen)
-        return 10.0f;
+        return 10.0f; // Fallback
     }
+
 
     //================== Low Pass Filter Solo the modulator ====================================
     std::atomic<bool> bypassOversampling { false }; // atomic bool for the LPF solo in processblock
@@ -125,7 +138,7 @@ private:
 
     // Pointers to your parameters
     juce::AudioParameterFloat* modDepthParam = nullptr;
-    juce::AudioParameterChoice* maxDelayMsParam = nullptr;
+    juce::AudioParameterInt* maxDelayMsParam = nullptr;
     juce::AudioParameterChoice* algorithmParam = nullptr;
     juce::AudioParameterBool* swapParam = nullptr;
     juce::AudioParameterBool* limiterParam = nullptr;

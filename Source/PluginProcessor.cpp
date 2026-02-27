@@ -1,11 +1,3 @@
-/*
-  ==============================================================================
-
-    This file contains the basic framework code for a JUCE plugin processor.
-
-  ==============================================================================
-*/
-
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 #include <cmath> // for std::tanh
@@ -18,16 +10,29 @@ juce::AudioProcessorValueTreeState::ParameterLayout FmEngineAudioProcessor::crea
     std::vector<std::unique_ptr<juce::RangedAudioParameter>> params;
 
     params.push_back(std::make_unique<juce::AudioParameterFloat>(
-        juce::ParameterID{"MOD_DEPTH", 1}, "Modulation Depth",
-        juce::NormalisableRange<float>(0.0f, 1.0f, 0.0f, 2.0f), // skew = 0.5f
+        juce::ParameterID("MOD_DEPTH", 1),
+        "Modulation Depth",
+        juce::NormalisableRange<float>(0.0f, 1.0f),  // This is correct
         0.0f
     ));
 
-    params.push_back(std::make_unique<juce::AudioParameterChoice>(
-        juce::ParameterID{"MAX_DELAY_MS", 1}, "Range (Max Delay)",
-        juce::StringArray{ "10 ms", "100 ms", "500 ms" },
-        0 // default index (10 ms)
+
+    // CHANGE FROM Choice to Int
+    params.push_back(std::make_unique<juce::AudioParameterInt>(
+        juce::ParameterID("MAX_DELAY_MS", 1),
+        "Range (Max Delay)",
+        0,      // min value
+        3,      // max value  
+        1,      // default value (10ms)
+        juce::String(),
+        [](int value, int) {
+            // Display the actual ms values
+            const char* labels[] = { "1 ms", "10 ms", "100 ms", "500 ms" };
+            return juce::String(labels[value]);
+        }
     ));
+
+
 
     params.push_back(std::make_unique<juce::AudioParameterChoice>(
         juce::ParameterID{"ALGORITHM", 1}, "Algorithm",
@@ -65,35 +70,6 @@ juce::AudioProcessorValueTreeState::ParameterLayout FmEngineAudioProcessor::crea
         20000.0f // default value
     ));   
 
-    // i need this mapping but it's been difficult to get it working in this part. trying in the slider itself.
-    // params.push_back(std::make_unique<juce::AudioParameterFloat>(
-    //     juce::ParameterID{"LP_CUTOFF", 1}, "Lowpass Cutoff",
-    //     juce::NormalisableRange<float>(
-    //         20.0f, 20000.0f,
-    //         // Normalised [0,1] -> Hz
-    //         [](float start, float end, float norm) {
-    //             juce::ignoreUnused(start, end);
-    //             if (norm < 0.5f)
-    //                 // Linear from 20 to 100 Hz
-    //                 return 20.0f + (60.0f - 20.0f) * (norm / 0.5f);
-    //             else
-    //                 // Log from 100 Hz to 20,000 Hz
-    //                 return 60.0f * std::pow(20000.0f / 60.0f, (norm - 0.5f) / 0.5f);
-    //         },
-    //         // Hz -> Normalised [0,1]
-    //         [](float start, float end, float value) {
-    //             juce::ignoreUnused(start, end);
-    //             if (value < 60.0f)
-    //                 // Linear region
-    //                 return 0.5f * (value - 20.0f) / (60.0f - 20.0f);
-    //             else
-    //                 // Log region
-    //                 return 0.5f + 0.5f * std::log(value / 60.0f) / std::log(20000.0f / 60.0f);
-    //         }
-    //     ),
-    //     20000.0f // default value
-    // ));
-
     return { params.begin(), params.end() };
 }
 
@@ -119,8 +95,8 @@ juce::AudioProcessor::BusesProperties FmEngineAudioProcessor::makeBusesPropertie
     bp.addBus(true,  "Sidechain", juce::AudioChannelSet::stereo(), true);   // Stereo sidechain
 
     // --- 4 discrete in / 2 discrete out (alternative configuration) ---
-    bp.addBus(true,  "DiscreteIn4",  juce::AudioChannelSet::discreteChannels(4), false); // 4 discrete input channels, disabled by default
-    bp.addBus(false, "DiscreteOut2", juce::AudioChannelSet::discreteChannels(2), false); // 2 discrete output channels, disabled by default
+    //bp.addBus(true,  "DiscreteIn4",  juce::AudioChannelSet::discreteChannels(4), false); // 4 discrete input channels, disabled by default
+    //bp.addBus(false, "DiscreteOut2", juce::AudioChannelSet::discreteChannels(2), false); // 2 discrete output channels, disabled by default
 
     return bp;
 }
@@ -136,7 +112,7 @@ FmEngineAudioProcessor::FmEngineAudioProcessor()
 {
     // Attach listeners to parameters
     modDepthParam = dynamic_cast<juce::AudioParameterFloat*>(apvts.getParameter("MOD_DEPTH"));
-    maxDelayMsParam = dynamic_cast<juce::AudioParameterChoice*>(apvts.getParameter("MAX_DELAY_MS"));
+    maxDelayMsParam = dynamic_cast<juce::AudioParameterInt*>(apvts.getParameter("MAX_DELAY_MS"));
     algorithmParam = dynamic_cast<juce::AudioParameterChoice*>(apvts.getParameter("ALGORITHM"));
 
     limiterParam = dynamic_cast<juce::AudioParameterBool*>(apvts.getParameter("LIMITER"));
@@ -343,10 +319,6 @@ void FmEngineAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlo
     highPassL.coefficients = juce::dsp::IIR::Coefficients<float>::makeHighPass(sampleRate, 10.0f, 0.707f);
     highPassR.coefficients = juce::dsp::IIR::Coefficients<float>::makeHighPass(sampleRate, 10.0f, 0.707f);
 
-    // limiterModL.prepare(getSampleRate(), getBlockSize());
-    // limiterModL.setCeiling(-0.1f); // example: -0.1 dB ceiling
-    // limiterModR.prepare(getSampleRate(), getBlockSize());
-    // limiterModR.setCeiling(-0.1f); // example: -0.1 dB ceiling
     limiterOutL.prepare(getSampleRate(), getBlockSize());
     limiterOutL.setCeiling(-0.1f); // example: -0.1 dB ceiling
     limiterOutR.prepare(getSampleRate(), getBlockSize());
@@ -369,59 +341,31 @@ void FmEngineAudioProcessor::releaseResources()
     // Add any other resource cleanup your plugin requires
 }
 
-// trying to add discrete channels as a potential remedy to the sidechain not rendering problem
 bool FmEngineAudioProcessor::isBusesLayoutSupported(const BusesLayout& layouts) const
 {
-    // --- Original stereo main + stereo sidechain case ---
+    auto mainIn  = layouts.getMainInputChannelSet();
+    auto mainOut = layouts.getMainOutputChannelSet();
+
+    // Must have stereo main I/O at minimum
+    if (mainIn != juce::AudioChannelSet::stereo() || 
+        mainOut != juce::AudioChannelSet::stereo())
+        return false;
+
+    // Case 1: Simple stereo (no sidechain) — Logic tries this first!
+    if (layouts.inputBuses.size() == 1 && layouts.outputBuses.size() == 1)
+        return true;
+
+    // Case 2: Stereo + stereo sidechain
     if (layouts.inputBuses.size() == 2 && layouts.outputBuses.size() == 1)
     {
-        // Main input must be stereo
-        auto mainInputChannels = layouts.getMainInputChannelSet();
-        if (mainInputChannels != juce::AudioChannelSet::stereo())
-        {
-            DBG("REJECT: Main input must be stereo, got " << mainInputChannels.getDescription());
-            return false;
-        }
-
-        // Main output must be stereo
-        auto mainOutputChannels = layouts.getMainOutputChannelSet();
-        if (mainOutputChannels != juce::AudioChannelSet::stereo())
-        {
-            DBG("REJECT: Main output must be stereo, got " << mainOutputChannels.getDescription());
-            return false;
-        }
-
-        // Sidechain input (bus index 1) must be stereo
-        auto sidechainChannels = layouts.getChannelSet(true, 1);
-        if (sidechainChannels != juce::AudioChannelSet::stereo())
-        {
-            DBG("REJECT: Sidechain input must be stereo, got " << sidechainChannels.getDescription());
-            return false;
-        }
-
-        DBG("ACCEPT: Stereo main in/out and stereo sidechain.");
-        return true;
-    }
-
-    // --- New case: 4 discrete in, 2 discrete out (single input and output bus) ---
-    if (layouts.inputBuses.size() == 1 && layouts.outputBuses.size() == 1)
-    {
-        auto inSet  = layouts.getMainInputChannelSet();
-        auto outSet = layouts.getMainOutputChannelSet();
-
-        if (inSet == juce::AudioChannelSet::discreteChannels(4) &&
-            outSet == juce::AudioChannelSet::discreteChannels(2))
-        {
-            DBG("ACCEPT: 4 discrete input channels, 2 discrete output channels.");
+        auto sc = layouts.getChannelSet(true, 1);
+        // Accept disabled sidechain OR stereo sidechain
+        if (sc.isDisabled() || sc == juce::AudioChannelSet::stereo())
             return true;
-        }
     }
 
-    // If no supported layout matched, reject it
-    DBG("REJECT: Unsupported bus layout.");
     return false;
 }
-
 //==============================================================================
 // 4. ENHANCED processBlock with better channel debugging
 
@@ -593,14 +537,6 @@ void FmEngineAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce
         jassert(std::isfinite(filteredL));
         jassert(std::isfinite(filteredR));
     
-        // if you want to limit the modulator
-
-        // try lookahead limiter instead of sine clipper ============================= LIMIT MOD
-        // problem: creates difficult to resolve latency between mod and carrier.
-        // if (currentLimiter) {
-        // filteredL = limiterModL.processSample(filteredL);
-        // filteredR = limiterModR.processSample(filteredR);
-        // }     
         // === APPLY MOD DEPTH while signal is still bipolar ===
 
         float depthModL = filteredL * smoothedModDepthLocal;
@@ -744,7 +680,6 @@ void FmEngineAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce
             carrierR[i] = std::isfinite(outR) ? outR : 0.0f;
         }
     }
-
     
     // stuff that has to do with smoothly crossfading the LPF solo function
     // in oversampled mode the clipper is in there so i wonder if there is a risk from spikes here.
@@ -758,8 +693,6 @@ void FmEngineAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce
     
     float fadeMix = 0.5f * (1.0f - std::cos(lpfSoloFade * juce::MathConstants<float>::pi));
 
-
-    
     // ============= FIXED OUTPUT SECTION - NO MORE VECTOR BOUNDS VIOLATIONS =============
     for (int i = 0; i < numSamples; ++i)
     {

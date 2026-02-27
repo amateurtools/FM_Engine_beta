@@ -1,41 +1,168 @@
 #if __has_include("JuceHeader.h")
-// Projucer build
 #include "JuceHeader.h"
 #else
-// CMake build: include only the modules you need
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_gui_basics/juce_gui_basics.h>
 #include "BinaryData.h"
-// ... add more as needed
-// #include "BinaryData.h" // Only if you use binary data in this file
 #endif
 
 #include "PluginEditor.h"
 #include "PluginProcessor.h"
 
-FmEngineAudioProcessorEditor::FmEngineAudioProcessorEditor(FmEngineAudioProcessor& p)
+//==============================================================================
+// Custom LookAndFeel for rotating PNG knobs
+class RotaryKnobLookAndFeel : public juce::LookAndFeel_V4
+{
+public:
+    RotaryKnobLookAndFeel()
+    {
+        // Load the single knob PNG from BinaryData
+        knobImage = juce::ImageCache::getFromMemory(BinaryData::knob_png, BinaryData::knob_pngSize);
+    }
 
-    : AudioProcessorEditor(p), processor(p) // Use reference, not pointer
+    void drawRotarySlider(juce::Graphics& g, int x, int y, int width, int height,
+                         float sliderPosProportional, float rotaryStartAngle,
+                         float rotaryEndAngle, juce::Slider& /*slider*/) override
+    {
+        if (!knobImage.isValid())
+        {
+            // Fallback: draw a simple circle if image fails to load
+            g.setColour(juce::Colours::grey);
+            g.fillEllipse(x, y, width, height);
+            return;
+        }
+
+        // Calculate rotation angle based on slider position
+        float angle = rotaryStartAngle + sliderPosProportional * (rotaryEndAngle - rotaryStartAngle);
+        
+        // Create transform for rotation around center
+        auto transform = juce::AffineTransform::rotation(angle, 
+                                                         knobImage.getWidth() * 0.5f, 
+                                                         knobImage.getHeight() * 0.5f);
+        
+        // Draw the rotated knob image
+        g.drawImageTransformed(knobImage, 
+                              transform.translated(x, y),
+                              false);
+    }
+
+private:
+    juce::Image knobImage;
+};
+
+//==============================================================================
+// Custom LookAndFeel for 4-position stepped knob
+class SteppedKnobLookAndFeel : public juce::LookAndFeel_V4
+{
+public:
+    SteppedKnobLookAndFeel()
+    {
+        knobImage = juce::ImageCache::getFromMemory(BinaryData::knob_png, BinaryData::knob_pngSize);
+    }
+
+    void drawRotarySlider(juce::Graphics& g, int x, int y, int width, int height,
+                         float sliderPosProportional, float rotaryStartAngle,
+                         float rotaryEndAngle, juce::Slider&) override
+    {
+        if (!knobImage.isValid())
+        {
+            g.setColour(juce::Colours::grey);
+            g.fillEllipse(x, y, width, height);
+            return;
+        }
+
+        // Snap to one of 4 positions: 0, 0.333, 0.666, 1.0
+        float snappedPos;
+        if (sliderPosProportional < 0.25f)
+            snappedPos = 0.0f;           // Position 0 (1ms)
+        else if (sliderPosProportional < 0.5f)
+            snappedPos = 0.333f;         // Position 1 (10ms)
+        else if (sliderPosProportional < 0.75f)
+            snappedPos = 0.666f;         // Position 2 (100ms)
+        else
+            snappedPos = 1.0f;           // Position 3 (500ms)
+
+        // Calculate rotation angle for the snapped position
+        float angle = rotaryStartAngle + snappedPos * (rotaryEndAngle - rotaryStartAngle);
+
+        // Create transform for rotation around center
+        auto transform = juce::AffineTransform::rotation(angle, knobImage.getWidth() * 0.5f, 
+                                                        knobImage.getHeight() * 0.5f);
+
+        // Draw the rotated knob image
+        g.drawImageTransformed(knobImage, transform.translated(x, y), false);
+    }
+
+private:
+    juce::Image knobImage;
+};
+
+
+//==============================================================================
+FmEngineAudioProcessorEditor::FmEngineAudioProcessorEditor(FmEngineAudioProcessor& p)
+    : AudioProcessorEditor(p), processor(p)
 {
     setSize(337, 600);
 
-    backgroundImage = juce::ImageFileFormat::loadFrom(BinaryData::background_png, BinaryData::background_pngSize);
-
+    // Load background image
+    backgroundImage = juce::ImageFileFormat::loadFrom(BinaryData::background_png, 
+                                                     BinaryData::background_pngSize);
     if (backgroundImage.isValid())
         backgroundImage = juce::SoftwareImageType().convert(backgroundImage);
     else
         DBG("Failed to load background image");
 
-    // ============== INSANELY OVERCOMPLICATED SLIDE SWITCH =====================================================
+    // Set custom look and feel for knobs
+    rotaryKnobLookAndFeel = std::make_unique<RotaryKnobLookAndFeel>();
+    steppedKnobLookAndFeel = std::make_unique<SteppedKnobLookAndFeel>();
+    
+    //==========================================================================
+    // MOD DEPTH KNOB (Continuous)
+    //==========================================================================
+    modDepthSlider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
+    modDepthSlider.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
+    modDepthSlider.setRange(0.0, 1.0, 0.0);
+    modDepthSlider.setRotaryParameters(juce::degreesToRadians(120.0f), 
+                                       juce::degreesToRadians(420.0f), 
+                                       true); // stopAtEnd = true
+    modDepthSlider.setLookAndFeel(rotaryKnobLookAndFeel.get());
+    addAndMakeVisible(modDepthSlider);
+    
+    modDepthAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
+        processor.apvts, "MOD_DEPTH", modDepthSlider);
 
+    //==========================================================================
+    // MAX DELAY KNOB (Stepped - 4 positions: 210, 250, 290, 330)
+    maxDelaySlider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
+    maxDelaySlider.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
+
+    // Use NormalisableRange for explicit stepped behavior
+    juce::NormalisableRange<double> steppedRange(0.0, 3.0, 1.0);
+    maxDelaySlider.setNormalisableRange(steppedRange);
+
+    maxDelaySlider.setRotaryParameters(juce::degreesToRadians(210.0f), 
+                                    juce::degreesToRadians(330.0f), 
+                                    true);
+    maxDelaySlider.setLookAndFeel(steppedKnobLookAndFeel.get());
+    addAndMakeVisible(maxDelaySlider);
+
+    maxDelayAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
+        processor.apvts, "MAX_DELAY_MS", maxDelaySlider);
+
+
+
+
+    //==========================================================================
+    // ALGORITHM SWITCH (3-position)
+    //==========================================================================
     addAndMakeVisible(slideSwitch);
-
+    
     auto* algorithmParam = processor.apvts.getParameter("ALGORITHM");
     jassert(algorithmParam != nullptr);
     
-    int maxAlgorithmIndex = static_cast<int>(dynamic_cast<juce::AudioParameterChoice*>(algorithmParam)->choices.size()) - 1;
+    int maxAlgorithmIndex = static_cast<int>(
+        dynamic_cast<juce::AudioParameterChoice*>(algorithmParam)->choices.size()) - 1;
 
-    // Parameter -> Switch
     algorithmAttachment = std::make_unique<juce::ParameterAttachment>(
         *algorithmParam,
         [this, algorithmParam, maxAlgorithmIndex](float normalizedValueFromParameter)
@@ -51,7 +178,6 @@ FmEngineAudioProcessorEditor::FmEngineAudioProcessorEditor(FmEngineAudioProcesso
         }
     );
 
-    // Switch -> Parameter
     slideSwitch.onPositionChanged = [algorithmParam, maxAlgorithmIndex](int index)
     {
         if (algorithmParam != nullptr)
@@ -65,237 +191,95 @@ FmEngineAudioProcessorEditor::FmEngineAudioProcessorEditor(FmEngineAudioProcesso
         }
     };
 
-    // Set initial position from parameter value
     float initialAlgorithmNormalized = algorithmParam->getValue();
     float initialAlgorithmRaw = algorithmParam->convertFrom0to1(initialAlgorithmNormalized);
-    slideSwitch.setPosition(juce::jlimit(0, maxAlgorithmIndex, static_cast<int>(std::round(initialAlgorithmRaw))));
+    slideSwitch.setPosition(juce::jlimit(0, maxAlgorithmIndex, 
+                                        static_cast<int>(std::round(initialAlgorithmRaw))));
 
-
-    // --- MOD_DEPTH (continuous) ---
-    modDepthDial.setBounds(45, 40, 100, 130);
-    modDepthDial.setAngleRange(juce::degreesToRadians(120.0f), juce::degreesToRadians(420.0f));
-    modDepthDial.setDragMode(Dial::VerticalDrag);
-    addAndMakeVisible(modDepthDial);
-
-    modDepthSlider.setRange(0.0, 1.0, 0.0); // continuous
-    modDepthSlider.setVisible(false);
-    modDepthAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
-        processor.apvts, "MOD_DEPTH", modDepthSlider
-    );
-
-    // --- MAX_DELAY_MS (stepped) ---
-
-    maxDelayDial.setBounds(195, 40, 100, 130);
-    maxDelayDial.setAngleRange(minAngle, maxAngle);
-    maxDelayDial.setDragMode(Dial::VerticalDrag);
-    maxDelayDial.setSteppedValues(steppedNormalizedValues); // Use normalized values, NOT ms values
-    addAndMakeVisible(maxDelayDial);
-
-    maxDelaySlider.setRange(0, 2, 1); // 0 = 10ms, 1 = 100ms, 2 = 500ms (indices)
-    maxDelaySlider.setVisible(false);
-    maxDelayAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
-        processor.apvts, "MAX_DELAY_MS", maxDelaySlider
-    );
-
-    // --- Synchronization ---
-    modDepthSlider.onValueChange = [this] {
-        float angle = juce::jmap(
-            static_cast<float>(modDepthSlider.getValue()),
-            0.0f, 1.0f,
-            juce::degreesToRadians(120.0f),
-            juce::degreesToRadians(420.0f)
-        );
-        modDepthDial.setAngle(angle);
-    };
-
-    modDepthDial.onAngleChanged = [this](int, float angle) {
-        float value = juce::jmap(
-            angle,
-            juce::degreesToRadians(120.0f),
-            juce::degreesToRadians(420.0f),
-            0.0f, 1.0f
-        );
-        modDepthSlider.setValue(value, juce::sendNotificationSync);
-    };
-
-    // Slider → Dial (index to normalized)
-    maxDelaySlider.onValueChange = [this] {
-        int idx = static_cast<int>(maxDelaySlider.getValue());
-        if (idx >= 0 && idx < dialAngles.size())
-            maxDelayDial.setAngle(dialAngles[idx]);
-    };
-
-    // When the dial changes (user moves it), set the slider index
-
-    // Dial → Slider (normalized to index)
-    maxDelayDial.onAngleChanged = [this](int, float angle) {
-        int closestIdx = 0;
-        float minDiff = std::abs(angle - dialAngles[0]);
-        for (int i = 1; i < dialAngles.size(); ++i)
-        {
-            float diff = std::abs(angle - dialAngles[i]);
-            if (diff < minDiff)
-            {
-                minDiff = diff;
-                closestIdx = i;
-            }
-        }
-        maxDelaySlider.setValue(closestIdx, juce::sendNotificationSync);
-    };
-
-    // --- Sensitivity ---
-    modDepthDial.setSensitivity(0.005f);
-    // maxDelayDial.setSensitivity(0.005f);
-
-    // --- Visual Sync on GUI Show ---
-    {
-        float value = static_cast<float>(modDepthSlider.getValue());
-        float angle = juce::jmap(
-            value,
-            0.0f, 1.0f,
-            juce::degreesToRadians(120.0f),
-            juce::degreesToRadians(420.0f)
-        );
-        modDepthDial.setAngle(angle);
-    }
-    {
-        int idx = static_cast<int>(maxDelaySlider.getValue());
-        if (idx >= 0 && idx < dialAngles.size())
-            maxDelayDial.setAngle(dialAngles[idx]);
-    }
-
-    // ==================== swap switch ================================
-
+    //==========================================================================
+    // TOGGLE SWITCHES
+    //==========================================================================
     addAndMakeVisible(swapToggle);
     swapAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(
-        processor.apvts, "SWAP", swapToggle);  
+        processor.apvts, "SWAP", swapToggle);
     
-    swapLabel.setText("Swap Inputs", juce::dontSendNotification);
+    addAndMakeVisible(predelayToggle);
+    predelayAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(
+        processor.apvts, "PREDELAY", predelayToggle);
+    
+    addAndMakeVisible(limiterToggle);
+    limiterAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(
+        processor.apvts, "LIMITER", limiterToggle);
+    
+    addAndMakeVisible(oversamplingToggle);
+    oversamplingAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(
+        processor.apvts, "OVERSAMPLING", oversamplingToggle);
+
+    //==========================================================================
+    // LABELS
+    //==========================================================================
+    swapLabel.setText("Swap", juce::dontSendNotification);
     swapLabel.setFont(juce::Font(juce::FontOptions("Arial", 14.0f, juce::Font::bold)));
     swapLabel.setColour(juce::Label::textColourId, juce::Colour(170, 170, 170));
     swapLabel.setJustificationType(juce::Justification::right);
     addAndMakeVisible(swapLabel);
 
-    // ================== PREDELAY TOGGLE ==================================
-
-    addAndMakeVisible(predelayToggle);
-    predelayAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(
-        processor.apvts, "PREDELAY", predelayToggle);
-
-    predelayLabel.setText("Pre-delay", juce::dontSendNotification);
+    predelayLabel.setText("PDC", juce::dontSendNotification);
     predelayLabel.setFont(juce::Font(juce::FontOptions("Arial", 14.0f, juce::Font::bold)));
     predelayLabel.setColour(juce::Label::textColourId, juce::Colour(170, 170, 170));
     predelayLabel.setJustificationType(juce::Justification::right);
     addAndMakeVisible(predelayLabel);
 
-    // ================== Clip Out TOGGLE =========================
-
-    addAndMakeVisible(limiterToggle);
-    limiterAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(
-        processor.apvts, "LIMITER", limiterToggle);
-
-    limiterLabel.setText("Limiter", juce::dontSendNotification);
+    limiterLabel.setText("Limit", juce::dontSendNotification);
     limiterLabel.setFont(juce::Font(juce::FontOptions("Arial", 14.0f, juce::Font::bold)));
     limiterLabel.setColour(juce::Label::textColourId, juce::Colour(170, 170, 170));
     limiterLabel.setJustificationType(juce::Justification::left);
     addAndMakeVisible(limiterLabel);
 
-    // ================== OVERSAMPLING TOGGLE ==============================
-
-    addAndMakeVisible(oversamplingToggle);
-    oversamplingAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(
-        processor.apvts, "OVERSAMPLING", oversamplingToggle);
-
-    oversamplingLabel.setText("Oversample", juce::dontSendNotification);
+    oversamplingLabel.setText("2X OS", juce::dontSendNotification);
     oversamplingLabel.setFont(juce::Font(juce::FontOptions("Arial", 14.0f, juce::Font::bold)));
     oversamplingLabel.setColour(juce::Label::textColourId, juce::Colour(170, 170, 170));
     oversamplingLabel.setJustificationType(juce::Justification::left);
     addAndMakeVisible(oversamplingLabel);
 
-    //==============// lpfSlider =======================================================================
-    
+    //==========================================================================
+    // LPF SLIDER
+    //==========================================================================
     addAndMakeVisible(lpfSlider);
     lpfSliderAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
-        processor.apvts, "LP_CUTOFF", lpfSlider
-    );
+        processor.apvts, "LP_CUTOFF", lpfSlider);
     
     lpfSlider.onBypassOversamplingChanged = [this](bool shouldBypass)
     {
         processor.bypassOversampling = shouldBypass;
     };
 
-    //============== timer for the updating of the delay time and range ===================
-
+    //==========================================================================
+    // Collect all GUI components for hide/show functionality
+    //==========================================================================
     guiComponents = {
-        &modDepthDial,
-        &maxDelayDial,
+        &modDepthSlider,
+        &maxDelaySlider,
         &slideSwitch,
         &swapToggle,
         &predelayToggle,
         &limiterToggle,
         &oversamplingToggle,
         &lpfSlider,
-        &modDepthSlider,
-        &maxDelaySlider,
-        &amountLabel,
-        &rangeLabel,
         &swapLabel,
         &predelayLabel,
         &limiterLabel,
         &oversamplingLabel
-        // Add any more components you want to hide/show
     };
 
-
-    startTimerHz(30); // 30 Hz is smooth for UI
-
+    startTimerHz(30); // 30 Hz refresh for parameter display
 }
-
-const std::vector<float> FmEngineAudioProcessorEditor::dialAngles { 
-    FmEngineAudioProcessorEditor::minAngle, 
-    FmEngineAudioProcessorEditor::midAngle, 
-    FmEngineAudioProcessorEditor::maxAngle 
-};
-const std::vector<float> FmEngineAudioProcessorEditor::steppedNormalizedValues { 0.0f, 0.5f, 1.0f };
-
-// draw tic marks for range dial
-void drawDialTicMarks(juce::Graphics& g)
-{
-    // Dial bounding box and center
-    const float bboxX = 195.0f, bboxY = 40.0f, bboxW = 100.0f, bboxH = 130.0f;
-    const float centerX = bboxX + bboxW * 0.5f;
-    const float centerY = bboxY + bboxH * 0.5f;
-
-    // Tic mark radii and angles
-    const float innerRadius = 52.0f;
-    const float outerRadius = 57.0f;
-    const float startAngleDeg = 225.0f;
-    const float endAngleDeg = 315.0f;
-    const int numTics = 3;
-
-    g.setColour(juce::Colour(125, 125, 125));
-
-    for (int i = 0; i < numTics; ++i)
-    {
-        // Calculate angle for this tic
-        float alpha = juce::jmap<float>(i, 0, numTics - 1, startAngleDeg, endAngleDeg);
-        float angleRad = juce::degreesToRadians(alpha);
-
-        float x1 = centerX + innerRadius * std::cos(angleRad);
-        float y1 = centerY + innerRadius * std::sin(angleRad);
-        float x2 = centerX + outerRadius * std::cos(angleRad);
-        float y2 = centerY + outerRadius * std::sin(angleRad);
-
-        g.drawLine(x1, y1, x2, y2, 2.0f); // 1px wide
-    }
-}
-
-// ==========================================================================
 
 FmEngineAudioProcessorEditor::~FmEngineAudioProcessorEditor()
 {
-    dials.clear(); // Optional safety measure
-
+    // Reset look and feel before components are destroyed
+    modDepthSlider.setLookAndFeel(nullptr);
+    maxDelaySlider.setLookAndFeel(nullptr);
 }
 
 void FmEngineAudioProcessorEditor::timerCallback()
@@ -305,131 +289,126 @@ void FmEngineAudioProcessorEditor::timerCallback()
 
 void FmEngineAudioProcessorEditor::paint(juce::Graphics& g)
 {
-    
-    // Use medium-quality resampling for better compatibility (avoids hardware acceleration)
+    // Use medium-quality resampling for better compatibility
     g.setImageResamplingQuality(juce::Graphics::mediumResamplingQuality);
 
     if (backgroundImage.isValid())
     {
-        // Draw the image scaled to exactly fill the component's bounds
         g.drawImage(backgroundImage,
-            getLocalBounds().toFloat(),
-            juce::RectanglePlacement::stretchToFit,
-            false);                                  // don't fillAlphaChannel
+                   getLocalBounds().toFloat(),
+                   juce::RectanglePlacement::stretchToFit,
+                   false);
     }
 
+    // Title
     g.setFont(juce::Font(juce::FontOptions("Arial", 26.0f, juce::Font::bold)));
-
-    g.setColour(juce::Colour(170, 170, 170)); // gold
+    g.setColour(juce::Colour(170, 170, 170));
     g.drawText("FM Engine",
-                getLocalBounds().removeFromTop(55), // Top banner area
-                juce::Justification::centred, true);
+              getLocalBounds().removeFromTop(55),
+              juce::Justification::centred, true);
 
+    // Draw tic marks for range dial
     drawDialTicMarks(g);
 
-    // ====================== write the current delay times as knob labels
+    // Display current delay times as knob labels
     auto* modDepthParam = processor.apvts.getRawParameterValue("MOD_DEPTH");
-
     float maxDelayMs = processor.getMaxDelayMsFromChoice();
-    float modDepth   = modDepthParam ? modDepthParam->load() : 0.0f;
+    float modDepth = modDepthParam ? modDepthParam->load() : 0.0f;
     float modAmountMs = maxDelayMs * modDepth;
-
-    // Optionally clamp for display
     modAmountMs = juce::jlimit(0.0f, maxDelayMs, modAmountMs);
 
     g.setFont(juce::Font(juce::FontOptions("Arial", 14.0f, juce::Font::bold)));
-
     g.setColour(juce::Colour(170, 170, 170));
 
     if (maxDelayMs && modDepthParam)
     {
         juce::String modAmountText = juce::String(modAmountMs, 2) + " ms";
-        juce::String maxDelayText  = juce::String(maxDelayMs, 0) + " ms";
-        g.drawFittedText(modAmountText, amountLabel.getBounds(), juce::Justification::centred, 1);
-        g.drawFittedText(maxDelayText,  rangeLabel.getBounds(),  juce::Justification::centred, 1);
-    }
-    else
-    {
-        g.setColour(juce::Colours::red);
-        g.drawText("Param error", 10, 10, 100, 20, juce::Justification::left);
+        juce::String maxDelayText = juce::String(maxDelayMs, 0) + " ms";
+        g.drawFittedText(modAmountText, 47, 166, 100, 20, juce::Justification::centred, 1);
+        g.drawFittedText(maxDelayText, 196, 165, 100, 20, juce::Justification::centred, 1);
     }
 
-    //============== Hidden Control panel stuff =============================
-
-    // Draw sandwich/burger menu icon (always visible)
-    // Always draw the burger menu icon
-
-    // int x = sandwichIconBounds.getX();
-    // int y = sandwichIconBounds.getY();
-    // int w = sandwichIconBounds.getWidth();
-    // int h = sandwichIconBounds.getHeight();
-    // int lineThickness = 3;
-    // int spacing = 4;
-
-    // for (int i = 0; i < 3; ++i)
-    // {
-    //     int yOffset = y + i * spacing + i * lineThickness + 3;
-    //     g.setColour(juce::Colours::black);
-    //     g.fillRect(x + 3, yOffset, w - 6, lineThickness);
-    // }
-
+    // Hidden control panel (info screen)
     if (controlPanelVisible)
     {
-        g.setColour(juce::Colour::fromRGBA(40, 40, 40, 225)); // All values are int 0–255
+        g.setColour(juce::Colour::fromRGBA(42, 42, 42, 255));
         g.fillRect(getLocalBounds());
 
-        // g.setColour(juce::Colour(215, 215, 215));
-        // g.drawRect(getLocalBounds(), 2);
-
-        g.setFont(juce::Font(juce::FontOptions("DejaVu Sans", 16.0f, juce::Font::plain)));
-
-        g.setColour(juce::Colour(215, 215, 215));
+        g.setFont(juce::Font(juce::FontOptions("DejaVu Sans Mono", 16.0f, juce::Font::plain)));
+        g.setColour(juce::Colour(204, 204, 204));
 
         juce::String infoText = 
-        
-            "        FM Engine - Ver. 071325        \n"
-            "       (c) 2025 AmateurTools DSP       \n"
-            "---------------------------------------\n"
-            "                                       \n"
-            "Sidechain audio controlled vibrato,    \n"
-            "with a self-oscillating mono mode.     \n"
-            "(Expects Stereo and SC inputs.)        \n"
-            "                                       \n"
-            "Upper Right dial sets timebase.        \n"
-            "Upper Left dial adjusts the amount.    \n"
-            "                                       \n"
-            "Algo 1: modulates L with R, mono       \n"
-            "Algo 2: modulates L+R with SC_L+SC_R   \n"
-            "Algo 3: same as 2 but stereo i/o       \n"
-            "                                       \n"
-            "Modulator inputs are limited by delay, \n"
-            "CLIP OUTPUT is optional.               \n"
-            "                                       \n"
-            "SWAP INPUTS flip Carrier and Modulator \n"
-            "                                       \n"
-            "OVERSAMPLE - 2x resolution             \n"
-            "                                       \n"
-            "PRE DELAY secures timing, at the       \n"
-            "cost of added project latency.         \n"
-            "                                       \n"
-            "LPF slider Low Passes the Modulator.   \n"
-            "                                       \n"
-            "---------------------------------------\n"
-            " Thanks to: JUCE, VST==SteinbergGmBh,  \n"
-            " BedroomProducersBlog, Rolando Simmons \n"
-            " Perplexity.ai, Erik lagerwall, 141414 \n"
-            " Gravity.fm, John Chowning, Stroustrop \n"
-            " Linux, Rolando Simmons, Aphex Twin    \n";            
+            "      FM Engine - Ver. 071525      \n"
+            "   (c)2014-2025 AmateurTools DSP   \n"
+            "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n"
+            "                                   \n"
+            "Arbitrary-input frequency modulator\n"
+            "with auxiliary sidechain input     \n"
+            "with additional self-mod mono mode.\n"
+            "(Expects Stereo and SC inputs, but \n"
+            "works with just the main inputs.)  \n"
+            "                                   \n"
+            "Upper Right dial sets delay time.  \n"
+            "Upper Left dial attenuates that.   \n"
+            "                                   \n"
+            "Alg 1: stereo in, L <- R           \n"
+            "Alg 2: summed in <- summed SC      \n"
+            "Alg 3: stereo in <- stereo SC      \n"
+            "                                   \n"
+            "LIMIT  Adds limitations to i/o     \n"
+            "                                   \n"
+            "SWAP   Swaps the Carrier/Modulator \n"
+            "                                   \n"
+            "OS2X   2x Oversampling             \n"
+            "                                   \n"
+            "PDC    Secures timing, but adds    \n"
+            "       latency to the DAW.         \n"
+            "                                   \n"
+            "LPF    (with SHIFT+DRAG preview)   \n"
+            "                                   \n"
+            "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n"
+            "                                   \n"
+            "Thanks: JUCE, VST Steinberg GmBh,  \n"
+            "  BedroomProducersBlog,            \n"
+            "Concept inspired by: Autechre,     \n"
+            "Beta Tester: Erik Lagerwall        \n";
 
-            g.drawFittedText(
-                infoText,
-                getLocalBounds().reduced(20),
-                juce::Justification::centredLeft,
-                35 // or as needed
-        );
+        g.drawFittedText(infoText,
+                        getLocalBounds().reduced(20),
+                        juce::Justification::centredLeft,
+                        35);
     }
+}
 
-    // ============= End of info screen ==================================
+void FmEngineAudioProcessorEditor::drawDialTicMarks(juce::Graphics& g)
+{
+    // Dial bounding box and center
+    const float bboxX = 195.0f, bboxY = 40.0f, bboxW = 100.0f, bboxH = 130.0f;
+    const float centerX = bboxX + bboxW * 0.5f;
+    const float centerY = bboxY + bboxH * 0.5f;
+
+    // Tic mark radii and angles
+    const float innerRadius = 52.0f;
+    const float outerRadius = 57.0f;
+    const float startAngleDeg = 210.0f;
+    const float endAngleDeg = 330.0f;
+    const int numTics = 4;
+
+
+    g.setColour(juce::Colour(125, 125, 125));
+
+    for (int i = 0; i < numTics; ++i)
+    {
+        float alpha = juce::jmap<float>(i, 0, numTics - 1, startAngleDeg, endAngleDeg);
+        float angleRad = juce::degreesToRadians(alpha);
+
+        float x1 = centerX + innerRadius * std::cos(angleRad);
+        float y1 = centerY + innerRadius * std::sin(angleRad);
+        float x2 = centerX + outerRadius * std::cos(angleRad);
+        float y2 = centerY + outerRadius * std::sin(angleRad);
+
+        g.drawLine(x1, y1, x2, y2, 2.0f);
+    }
 }
 
 void FmEngineAudioProcessorEditor::mouseDown(const juce::MouseEvent& e)
@@ -438,7 +417,6 @@ void FmEngineAudioProcessorEditor::mouseDown(const juce::MouseEvent& e)
     {
         controlPanelVisible = !controlPanelVisible;
 
-        // Hide or show your GUI components
         for (auto* comp : guiComponents)
             comp->setVisible(!controlPanelVisible);
 
@@ -446,7 +424,6 @@ void FmEngineAudioProcessorEditor::mouseDown(const juce::MouseEvent& e)
         return;
     }
 
-    // Optionally, clicking outside does nothing now, or you can keep this to close overlay:
     if (controlPanelVisible && !sandwichIconBounds.contains(e.getPosition()))
     {
         controlPanelVisible = false;
@@ -457,25 +434,24 @@ void FmEngineAudioProcessorEditor::mouseDown(const juce::MouseEvent& e)
     }
 }
 
-
 void FmEngineAudioProcessorEditor::resized()
 {
-    amountLabel.setBounds(47, 166, 100, 20); // AMOUNT label
-    rangeLabel.setBounds(196, 165, 100, 20);  // RANGE label
+    // Position knobs (100x100 each, centered in their areas)
+    modDepthSlider.setBounds(45, 40, 100, 100);
+    maxDelaySlider.setBounds(195, 40, 100, 100);
     
-    slideSwitch.setBounds(138, 216, 60, 20);  // algorithm
-    lpfSlider.setBounds(20, 499, 300, 20);    // lpf slider
+    slideSwitch.setBounds(138, 216, 60, 20);
+    lpfSlider.setBounds(20, 499, 300, 20);
 
-    swapToggle.setBounds(280, 419, 40, 20); // swap toggle
-    swapLabel.setBounds(175, 419, 100, 20); 
+    swapToggle.setBounds(280, 419, 40, 20);
+    swapLabel.setBounds(175, 419, 100, 20);
 
-    predelayToggle.setBounds(280, 459, 40, 20);    // PREDELAY toggle
+    predelayToggle.setBounds(280, 459, 40, 20);
     predelayLabel.setBounds(175, 459, 100, 20);
 
-    limiterToggle.setBounds(20, 419, 40, 20); // limit output
-    limiterLabel.setBounds(65, 419, 145, 20); 
+    limiterToggle.setBounds(20, 419, 40, 20);
+    limiterLabel.setBounds(65, 419, 145, 20);
 
-    oversamplingToggle.setBounds(20, 459, 40, 20);    // oversampling toggle
+    oversamplingToggle.setBounds(20, 459, 40, 20);
     oversamplingLabel.setBounds(65, 459, 145, 20);
-
 }

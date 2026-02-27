@@ -19,7 +19,7 @@ public:
 
     void setMaxDelayMs(float newMaxDelayMs) noexcept
     {
-        constexpr float maxDelayMsPossible = 2000.0f; // Updated to 2000ms
+        constexpr float maxDelayMsPossible = 2000.0f; 
         maxDelayMs = std::clamp(newMaxDelayMs, 1.0f, maxDelayMsPossible);
     }
 
